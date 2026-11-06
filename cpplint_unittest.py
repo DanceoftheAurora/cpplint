@@ -962,6 +962,31 @@ class TestCpplint(CpplintTestBase):
             "",
         )
 
+    def testCStyleCastInTypeAlias(self):
+        # Casts inside decltype are expressions, not function-pointer declarators.
+        for code in (
+            "using Ptr = decltype((int*)(p));",
+            "typedef decltype((int*)(p)) Ptr;",
+            "using Ptr [[maybe_unused]] = decltype((int*)(p));",
+            "namespace scope { using Ptr = decltype((int*)(p)); }",
+            "using Other = int; int *q = (int*)(p);",
+            "typedef int Other; int *q = (int*)(p);",
+        ):
+            self.TestLint(
+                code,
+                "Using C-style cast.  Use reinterpret_cast<int*>(...) instead"
+                "  [readability/casting] [4]",
+            )
+        for code in (
+            "using Value = decltype((int)(value));",
+            "typedef decltype((int)(value)) Value;",
+            "using Value = std::integral_constant<int, (int)(1.0)>;",
+        ):
+            self.TestLint(
+                code,
+                "Using C-style cast.  Use static_cast<int>(...) instead  [readability/casting] [4]",
+            )
+
     # Test taking address of casts (runtime/casting)
     def testRuntimeCasting(self):
         error_msg = (
@@ -1128,6 +1153,13 @@ class TestCpplint(CpplintTestBase):
         )
         self.TestLint("typedef int32_t(CALLCONV* Func)(int);", "")
         self.TestLint("using Func = int32_t(CALLCONV *)(int, int);", "")
+        self.TestLint("using Func = std::pair<int, int>(CALLCONV *)(void);", "")
+        self.TestLint("using Func = decltype(value)(CALLCONV *)(void);", "")
+        self.TestLint("using Func [[maybe_unused]] = int(CALLCONV *)(int);", "")
+        self.TestLint("namespace scope { using Func = int(CALLCONV *)(int); }", "")
+        self.TestLint("struct Scope { using Func = int(CALLCONV *)(int); };", "")
+        self.TestLint("using Other = int; using Func = int(CALLCONV *)(int);", "")
+        self.TestLint("namespace scope { typedef int(CALLCONV* Func)(int); }", "")
         self.TestLint("typedef int32_t(CALLCONV* FuncArray[3])(void);", "")
         self.TestLint("typedef int32_t(*FuncArray[3])(void);", "")
 

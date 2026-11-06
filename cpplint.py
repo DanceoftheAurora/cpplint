@@ -6808,8 +6808,25 @@ def CheckCStyleCast(filename, clean_lines, linenum, cast_type, pattern, error):
     # Function-pointer types in typedef/alias declarations can look like
     # pointer casts followed by a parameter list, e.g.
     #   using Func = int32_t(CALLCONV *)(void);
-    if re.search(r"\b(?:typedef|using)\b", line) and re.match(r"^\s*\(", remainder):
-        return False
+    if re.match(r"^\s*\(", remainder):
+        for declaration in re.finditer(
+            r"\b(?:typedef\s+|using\s+\w+\s*(?:\[\[.*?\]\]\s*)*=\s*)",
+            line[: match.start(0)],
+        ):
+            # The candidate must be at the top level of the declared type, not
+            # inside decltype/template arguments or after a separate statement.
+            position = declaration.end()
+            while position < match.start(0):
+                if line[position] in "(<[":
+                    _, end_line, position = CloseExpression(clean_lines, linenum, position)
+                    if end_line != linenum or position < 0:
+                        break
+                elif line[position] in ";{}=":
+                    break
+                else:
+                    position += 1
+            if position == match.start(0):
+                return False
 
     # At this point, all that should be left is actual casts.
     error(
