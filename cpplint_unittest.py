@@ -223,8 +223,8 @@ class CpplintTestBase:
         error_collector = ErrorCollector(self.assertTrue)
         include_state = cpplint._IncludeState()
         nesting_state = cpplint.NestingState()
-        raw_lines = code.split("\n")
-        lines = raw_lines
+        lines = code.split("\n")
+        is_c_file = cpplint.ProcessGlobalSuppressions(filename, lines)
         cpplint.RemoveMultiLineComments(filename, lines, error_collector)
         lines = cpplint.CleansedLines(lines)
         for i in range(lines.NumLines()):
@@ -236,7 +236,6 @@ class CpplintTestBase:
         # have language problems.
 
         # Second, look for missing includes.
-        is_c_file = cpplint._IsCFile(filename, raw_lines)
         cpplint.CheckForIncludeWhatYouUse(
             filename, lines, include_state, error_collector, io, is_c_file=is_c_file
         )
@@ -1189,6 +1188,34 @@ class TestCpplint(CpplintTestBase):
                 == "Add #include <vector> for vector<>  [build/include_what_you_use] [4]"
             )
 
+    @pytest.mark.parametrize(
+        ("filename", "marker", "header"),
+        [
+            ("foo.c", "", "stdio.h"),
+            ("foo.cu", "", "stdio.h"),
+            ("foo.cpp", "// LINT_C_FILE", "stdio.h"),
+            ("foo.cpp", "/* LINT_C_FILE */", "stdio.h"),
+            ("foo.cpp", "/*\nLINT_C_FILE\n*/", "stdio.h"),
+            ("foo.h", "/*\nLINT_C_FILE\n*/", "stdio.h"),
+            ("foo.cpp", "", "cstdio"),
+        ],
+    )
+    def testIncludeWhatYouUseFileClassification(self, filename, marker, header):
+        """Preserve C classification through comment removal without leaking between files."""
+        for name, directive, expected in (
+            (filename, marker, header),
+            ("following.cpp", "", "cstdio"),
+        ):
+            errors = []
+            cpplint.ProcessFileData(
+                name,
+                name.rsplit(".", 1)[1],
+                (directive + '\nvoid Func() { printf("hello"); }\n').splitlines(),
+                lambda *args, collected=errors: collected.append(args),
+            )
+            messages = [error[4] for error in errors if error[2] == "build/include_what_you_use"]
+            assert messages == [f"Add #include <{expected}> for printf"]
+
     def testIncludeWhatYouUse(self):
         self.TestIncludeWhatYouUse(
             """#include <vector>
@@ -1305,6 +1332,11 @@ class TestCpplint(CpplintTestBase):
         self.TestIncludeWhatYouUse(
             'printf("hello world");',
             "Add #include <cstdio> for printf  [build/include_what_you_use] [4]",
+            filename="foo.cpp",
+        )
+        self.TestIncludeWhatYouUse(
+            '/*\nLINT_C_FILE\n*/\nprintf("hello world");',
+            "Add #include <stdio.h> for printf  [build/include_what_you_use] [4]",
             filename="foo.cpp",
         )
         # The "C header already included" behaviour is preserved for C files.

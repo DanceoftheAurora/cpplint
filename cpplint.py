@@ -1235,7 +1235,7 @@ def ParseNolintSuppressions(filename, raw_line, linenum, error):
                     )
 
 
-def ProcessGlobalSuppressions(filename: str, lines: list[str]) -> None:
+def ProcessGlobalSuppressions(filename: str, lines: list[str]) -> bool:
     """Updates the list of global error suppressions.
 
     Parses any lint directives in the file that have global effect.
@@ -1244,14 +1244,19 @@ def ProcessGlobalSuppressions(filename: str, lines: list[str]) -> None:
       lines: An array of strings, each representing a line of the file, with the
              last element being empty if the file is terminated with a newline.
       filename: str, the name of the input file.
+
+    Returns:
+      Whether the original source is classified as a C file.
     """
-    if _IsCFile(filename, lines):
+    is_c_file = _IsCFile(filename, lines)
+    if is_c_file:
         for category in _DEFAULT_C_SUPPRESSED_CATEGORIES:
             _error_suppressions.AddGlobalSuppression(category)
     for line in lines:
         if _SEARCH_KERNEL_FILE.search(line):
             for category in _DEFAULT_KERNEL_SUPPRESSED_CATEGORIES:
                 _error_suppressions.AddGlobalSuppression(category)
+    return is_c_file
 
 
 def ResetNolintSuppressions():
@@ -7159,7 +7164,7 @@ def FilesBelongToSameModule(filename_cc, filename_h):
 
 
 def CheckForIncludeWhatYouUse(
-    filename, clean_lines, include_state, error, io=codecs, is_c_file=False
+    filename, clean_lines, include_state, error, io=codecs, *, is_c_file=False
 ):
     """Reports for missing stl includes.
 
@@ -7594,7 +7599,7 @@ def ProcessFileData(filename, file_extension, lines, error, extra_check_function
     ResetNolintSuppressions()
 
     CheckForCopyright(filename, lines, error)
-    ProcessGlobalSuppressions(filename, lines)
+    is_c_file = ProcessGlobalSuppressions(filename, lines)
     RemoveMultiLineComments(filename, lines, error)
     clean_lines = CleansedLines(lines)
 
@@ -7626,7 +7631,6 @@ def ProcessFileData(filename, file_extension, lines, error, extra_check_function
             "NONLINT block never ended",
         )
 
-    is_c_file = _IsCFile(filename, clean_lines.raw_lines)
     CheckForIncludeWhatYouUse(filename, clean_lines, include_state, error, is_c_file=is_c_file)
 
     # Check that the .cc file has included its header if it exists.
