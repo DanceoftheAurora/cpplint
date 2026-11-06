@@ -1628,6 +1628,20 @@ class TestCpplint(CpplintTestBase):
     def testConstrainedDeletedConstructors(self):
         warning = "Single-parameter constructors should be marked explicit.  [runtime/explicit] [4]"
         suffixes = (
+            "requires NonNegative<T{}>",
+            "requires NonNegative<[] { return 1; }()>",
+            "requires NonNegative<[] { return 1 < 2; }()>",
+            "requires NonNegative<[] { return 2 > 1; }()>",
+            "requires NonNegative<[]() -> int { return 1; }()>",
+            "requires NonNegative<\n                T{}\n                >",
+            "requires NonNegative<Value<T{}>::value>",
+            "requires NonNegative<T{}> && (sizeof(T) < 100)",
+            "requires (sizeof(T) < 100)",
+            "requires (sizeof(T) <= 100)",
+            "requires (sizeof(T) > 0)",
+            "requires (sizeof(T) >= 1)",
+            "requires ((sizeof(T) << 1) > 0)",
+            "requires ((sizeof(T) >> 1) > 0)",
             "requires requires { typename T::type; }",
             "requires requires(T value) { value + value; }",
             "requires requires\n                (T value)\n                { value + value; }",
@@ -1658,7 +1672,16 @@ class TestCpplint(CpplintTestBase):
     def testConstructorSuffixStopsAtBody(self):
         for suffix in (
             "requires (sizeof(T) > 0)",
+            "requires (sizeof(T) < 100)",
+            "requires (sizeof(T) <= 100)",
+            "requires (sizeof(T) >= 1)",
+            "requires ((sizeof(T) << 1) > 0)",
+            "requires ((sizeof(T) >> 1) > 0)",
             "requires Integral<T>",
+            "requires NonNegative<T{}>",
+            "requires NonNegative<[] { return 1 < 2; }()>",
+            "requires NonNegative<Value<T{}>::value>",
+            "requires NonNegative<T{}> && (sizeof(T) < 100)",
             "requires requires { typename T::type; }",
             "requires requires(T value) { value + value; }",
         ):

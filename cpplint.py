@@ -3794,12 +3794,25 @@ def _GetConstructorSuffix(clean_lines, linenum, match_end):
     brace_depth = 0
     in_requires_clause = False
     requires_expression = False
-    suffix_line = clean_lines.elided[linenum][match_end:]
-    next_line = linenum + 1
+    template_end = (-1, -1)
 
     while True:
-        for char in re.findall(r"\w+|[^\w]", suffix_line):
+        suffix_line = clean_lines.elided[linenum]
+        for match in re.finditer(r"\w+|[^\w]", suffix_line[match_end:]):
+            char = match.group()
+            if (linenum, match_end + match.start()) < template_end:
+                constructor_suffix.append(char)
+                continue
             if not paren_depth and not bracket_depth and not brace_depth:
+                if char == "<" and in_requires_clause:
+                    # A concept-id can contain braced template arguments. Use a
+                    # matched expression, not an angle-bracket depth: comparisons
+                    # in parentheses and lambda bodies must not leave it unbalanced.
+                    _, end_line, end_pos = CloseExpression(
+                        clean_lines, linenum, match_end + match.start()
+                    )
+                    if end_pos != -1:
+                        template_end = (end_line, end_pos)
                 if char == ";":
                     constructor_suffix.append(char)
                     return "".join(constructor_suffix)
@@ -3827,10 +3840,11 @@ def _GetConstructorSuffix(clean_lines, linenum, match_end):
             elif char == "}":
                 brace_depth -= 1
 
-        if next_line >= clean_lines.NumLines():
+        linenum += 1
+        if linenum >= clean_lines.NumLines():
             return "".join(constructor_suffix)
-        suffix_line = "\n" + clean_lines.elided[next_line]
-        next_line += 1
+        constructor_suffix.append("\n")
+        match_end = 0
 
 
 def CheckForNonStandardConstructs(filename, clean_lines, linenum, nesting_state, error):
