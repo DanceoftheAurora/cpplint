@@ -5910,6 +5910,32 @@ func2();""",
             "Include the directory when naming header files  [build/include_subdir] [4]",
         )
 
+    @pytest.mark.parametrize(
+        ("header_location", "expected"),
+        [
+            ("alias", ""),
+            (
+                "physical",
+                "Include the directory when naming header files  [build/include_subdir] [4]",
+            ),
+        ],
+    )
+    def testBuildIncludeSymlinkSource(self, tmp_path, header_location, expected):
+        physical_dir = tmp_path / "physical"
+        physical_dir.mkdir()
+        physical_source = physical_dir / "foo.cc"
+        physical_source.write_text("")
+        alias_dir = tmp_path / "alias"
+        alias_dir.mkdir()
+        source = alias_dir / "foo.cc"
+        try:
+            source.symlink_to(physical_source)
+        except OSError as error:
+            pytest.skip(f"file symlinks are unavailable: {error}")
+
+        (tmp_path / header_location / "utils.hpp").write_text("")
+        self.TestLanguageRulesCheck(str(source), '#include "utils.hpp"', expected)
+
     def testBuildIncludeSymlinkAlias(self, tmp_path):
         source = tmp_path / "self.h"
         source.write_text("")

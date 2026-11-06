@@ -5857,7 +5857,10 @@ def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
         and not _third_party_headers_pattern.match(match.group(1))
     ):
         source_path = os.path.realpath(filename)
-        same_dir_header = os.path.join(os.path.dirname(source_path), match.group(1))
+        # Resolve directory aliases without following the final source-file symlink:
+        # quoted includes are looked up beside the supplied source pathname.
+        source_dir = os.path.realpath(os.path.dirname(filename))
+        same_dir_header = os.path.join(source_dir, match.group(1))
         if not os.path.isfile(same_dir_header):
             error(
                 filename,
