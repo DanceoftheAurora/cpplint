@@ -4748,7 +4748,12 @@ def CheckBracesSpacing(filename, clean_lines, linenum, nesting_state, error):
         operator_after_braced_value = (
             re.match(r"^[\s}]*[+*/%&|^=!?-]", trailing_text)
             and re.search(r"(?:\w|>)$", leading_text)
-            and not re.search(r"\brequires\s*$", leading_text)
+            # Block keywords and lambda specifiers are not type names.
+            and not re.search(
+                r"\b(?:else|mutable|noexcept|constexpr|consteval|requires)\s*$", leading_text
+            )
+            # A named trailing return type still precedes a lambda body.
+            and not re.search(r"\]\s*\([^{}]*\)[^{}]*->\s*[\w:]+$", leading_text)
         )
         if (
             not re.match(r"^[\s}]*[{.;,)<>\]:]", trailing_text)

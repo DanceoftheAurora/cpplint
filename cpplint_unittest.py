@@ -3119,6 +3119,29 @@ class TestCpplint(CpplintTestBase):
         )
         self.TestLint("MoveOnly(int i1, int i2) : ip1{new int{i1}}, ip2{new int{i2}} {}", "")
 
+    @pytest.mark.parametrize(
+        "code",
+        [
+            "if (value) {\n  --value;\n} else{\n  value = 0;\n}\n++value;\n",
+            "return []() mutable{ return 1; } == nullptr;",
+            "return []() noexcept{ return 1; } == nullptr;",
+            "return []() constexpr{ return 1; } == nullptr;",
+            "static_assert([]() consteval{ return 1; } != nullptr);",
+            "return []() -> Value{ return value; } == nullptr;",
+        ],
+    )
+    @pytest.mark.parametrize("spacing", ["", " "])
+    def testBracedOperatorDoesNotSuppressBlockSpacing(self, code, spacing):
+        """Keep block and lambda spacing checks when an operator follows the body."""
+        code = re.sub(r"(?<=\S){", spacing + "{", code)
+        clean_lines = cpplint.CleansedLines(code.split("\n"))
+        errors = ErrorCollector(self.assertTrue)
+        nesting_state = cpplint.NestingState()
+        for linenum in range(clean_lines.NumLines()):
+            cpplint.CheckBracesSpacing("foo.cc", clean_lines, linenum, nesting_state, errors)
+        expected = "" if spacing else "Missing space before {  [whitespace/braces] [5]"
+        assert errors.Results() == expected
+
     def testSemiColonAfterBraces(self):
         self.TestLintContains(
             "if (cond) { func(); };", "You don't need a ; after a }  [readability/braces] [4]"
