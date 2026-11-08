@@ -1625,6 +1625,27 @@ class TestCpplint(CpplintTestBase):
             # One per line.
             assert error_collector.ResultList().count(multiline_string_error_message) == 2
 
+    @pytest.mark.parametrize("count", [20, 40, 80])
+    def testConstructorArgumentScanningIsBounded(self, count, monkeypatch):
+        """Scan nested argument fragments without revisiting a growing prefix."""
+        argument = "std::tuple<" + ", ".join(["int"] * count) + "> value"
+        scanned = []
+        original_sub = re.sub
+
+        def record_sub(pattern, replacement, text, *args, **kwargs):
+            if pattern == r"<<=?|<=":
+                scanned.append(len(text))
+            return original_sub(pattern, replacement, text, *args, **kwargs)
+
+        monkeypatch.setattr(cpplint.re, "sub", record_sub)
+        errors = []
+        code = ["class A {", f"  A({argument});", "};", ""]
+        cpplint.ProcessFileData("foo.cc", "cc", code, lambda *error: errors.append(error))
+        explicit_errors = [error for error in errors if error[2] == "runtime/explicit"]
+        assert len(explicit_errors) == 1
+        assert scanned
+        assert sum(scanned) <= len(argument)
+
     # Test non-explicit single-argument constructors
     def testExplicitSingleArgumentConstructors(self):
         old_verbose_level = cpplint._cpplint_state.verbose_level

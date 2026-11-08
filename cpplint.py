@@ -3791,6 +3791,34 @@ class NestingState:
         return None
 
 
+def _SplitConstructorArgs(arg_text):
+    """Split constructor arguments, retaining commas inside templates or calls.
+
+    Each comma-delimited fragment is scanned once. Signed bracket balances
+    preserve the existing operator heuristic, including unmatched delimiters.
+    """
+    if not arg_text:
+        return []
+
+    constructor_args = []
+    fragments = []
+    template_balance = 0
+    paren_balance = 0
+    for fragment in arg_text.split(","):
+        fragments.append(fragment)
+        # Ignore `<`-prefixed operators when balancing template brackets.
+        template_balance += re.sub(r"<<=?|<=", "", fragment).count("<") - fragment.count(">")
+        paren_balance += fragment.count("(") - fragment.count(")")
+        if template_balance <= 0 and paren_balance <= 0:
+            constructor_args.append(",".join(fragments))
+            fragments = []
+            template_balance = 0
+            paren_balance = 0
+    if fragments:
+        constructor_args.append(",".join(fragments))
+    return constructor_args
+
+
 def CheckForNonStandardConstructs(filename, clean_lines, linenum, nesting_state, error):
     r"""Logs an error if we see certain non-ANSI constructs ignored by gcc-2.
 
@@ -3938,24 +3966,9 @@ def CheckForNonStandardConstructs(filename, clean_lines, linenum, nesting_state,
     if explicit_constructor_match:
         is_marked_explicit = explicit_constructor_match.group(1)
 
-        if not explicit_constructor_match.group(2):
-            constructor_args = []
-        else:
-            constructor_args = explicit_constructor_match.group(2).split(",")
-
-        # Collapse commas inside template and function parameter lists.
-        i = 0
-        while i < len(constructor_args):
-            constructor_arg = constructor_args[i]
-            # Ignore `<`-prefixed operators when balancing template brackets.
-            while i + 1 < len(constructor_args) and (
-                re.sub(r"<<=?|<=", "", constructor_arg).count("<") > constructor_arg.count(">")
-                or constructor_arg.count("(") > constructor_arg.count(")")
-            ):
-                constructor_arg += "," + constructor_args[i + 1]
-                del constructor_args[i + 1]
-            constructor_args[i] = constructor_arg
-            i += 1
+        # collapse arguments so that commas in template parameter lists and function
+        # argument parameter lists don't split arguments in two
+        constructor_args = _SplitConstructorArgs(explicit_constructor_match.group(2))
 
         variadic_args = [arg for arg in constructor_args if "&&..." in arg]
         defaulted_args = [arg for arg in constructor_args if "=" in arg]

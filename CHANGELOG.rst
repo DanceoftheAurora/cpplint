@@ -5,6 +5,7 @@ Changelog
 TBA
 ===
 
+* Reduced repeated scanning of constructor arguments with nested templates and default-value operators. (#223)
 * Fixed a whitespace/newline false positive for control conditions containing lambdas. (#410)
 
 2.0.2 (2025-04-08)
