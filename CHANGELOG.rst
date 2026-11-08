@@ -6,6 +6,7 @@ TBA
 ===
 
 * Isolated include-order tests so they no longer affect absolute-path resolution in later tests.
+* Use path-aware prefix checks instead of deprecated os.path.commonprefix(). (#445)
 * Fixed a whitespace/newline false positive for control conditions containing lambdas. (#410)
 * We now error on relative include paths (``./``, ``../``). (#432)
    * This makes ``#include "./foo.h"`` produce two separate errors: that foo.cpp should include foo.h and that relative paths are not allowed.
