@@ -51,6 +51,7 @@ import glob
 import itertools
 import math  # for log
 import os
+import pathlib
 import re
 import string
 import sys
@@ -1788,8 +1789,7 @@ class FileInfo:
                     root_dir = os.path.dirname(root_dir)
                     one_up_dir = os.path.dirname(one_up_dir)
 
-                prefix = os.path.commonprefix([root_dir, project_dir])
-                return fullname[len(prefix) + 1 :]
+                return pathlib.PurePath(fullname).relative_to(root_dir).as_posix()
 
             # Not SVN <= 1.6? Try to find a git, hg, or svn top level directory by
             # searching up from the current path.
@@ -1809,8 +1809,7 @@ class FileInfo:
                 or os.path.exists(os.path.join(root_dir, ".hg"))
                 or os.path.exists(os.path.join(root_dir, ".svn"))
             ):
-                prefix = os.path.commonprefix([root_dir, project_dir])
-                return fullname[len(prefix) + 1 :]
+                return pathlib.PurePath(fullname).relative_to(root_dir).as_posix()
 
         # Don't know what to do; header guard warnings may be wrong...
         return fullname
@@ -2721,20 +2720,15 @@ def CheckHeaderFileIncluded(filename, include_state, error):
         if not os.path.exists(headerfile):
             continue
         headername = FileInfo(headerfile).RepositoryName()
-        include_uses_unix_dir_aliases = False
         for section_list in include_state.include_list:
             for f in section_list:
                 include_text = f[0]
-                if "./" in include_text:
-                    include_uses_unix_dir_aliases = True
                 if headername in include_text or include_text in headername:
                     return
                 if not first_include:
                     first_include = f[1]
 
         message = f"{fileinfo.RepositoryName()} should include its header file {headername}"
-        if include_uses_unix_dir_aliases:
-            message += ". Relative paths like . and .. are not allowed."
 
     if message:
         error(filename, first_include, "build/include", 5, message)
@@ -5826,6 +5820,11 @@ def _ClassifyInclude(fileinfo, include, used_angle_brackets, include_order="defa
     return _OTHER_HEADER
 
 
+def IncludePathUsesDirectoryAlias(include):
+    """Returns whether an include path contains a . or .. component."""
+    return include.startswith(("../", "./")) or "/../" in include or "/./" in include
+
+
 def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
     """Check rules that are applicable to #include lines.
 
@@ -5871,6 +5870,14 @@ def CheckIncludeLine(filename, clean_lines, linenum, include_state, error):
     if match:
         include = match.group(2)
         used_angle_brackets = match.group(1) == "<"
+        if IncludePathUsesDirectoryAlias(include):
+            error(
+                filename,
+                linenum,
+                "build/include",
+                4,
+                "Relative paths like . and .. are not allowed.",
+            )
         duplicate_line = include_state.FindHeader(include)
         if duplicate_line >= 0:
             error(
@@ -7972,14 +7979,12 @@ def _IsParentOrSame(parent, child):
     if parent == child:
         return True
 
-    prefix = os.path.commonprefix([parent, child])
-    if prefix != parent:
+    # Compare complete path components rather than character prefixes.
+    try:
+        return os.path.commonpath([parent, child]) == os.path.commonpath([parent])
+    except ValueError:
+        # Windows paths on different drives have no common ancestor.
         return False
-    # Note: os.path.commonprefix operates on character basis, so
-    # take extra care of situations like '/foo/ba' and '/foo/bar/baz'
-    child_suffix = child[len(prefix) :]
-    child_suffix = child_suffix.lstrip(os.sep)
-    return child == os.path.join(prefix, child_suffix)
 
 
 def main():

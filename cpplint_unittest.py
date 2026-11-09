@@ -530,8 +530,10 @@ class TestCpplint(CpplintTestBase):
         self.TestLint(
             "long a = (int64_t) 65;",
             [
-                "Using C-style cast.  Use static_cast<int64_t>(...) instead"
-                "  [readability/casting] [4]",
+                (
+                    "Using C-style cast.  Use static_cast<int64_t>(...) instead"
+                    "  [readability/casting] [4]"
+                ),
                 "Use int16_t/int64_t/etc, rather than the C type long  [runtime/int] [4]",
             ],
         )
@@ -975,8 +977,10 @@ class TestCpplint(CpplintTestBase):
         self.TestLint(
             "int* x = &(int*)foo;",
             [
-                "Using C-style cast.  Use reinterpret_cast<int*>(...) "
-                "instead  [readability/casting] [4]",
+                (
+                    "Using C-style cast.  Use reinterpret_cast<int*>(...) "
+                    "instead  [readability/casting] [4]"
+                ),
                 error_msg,
             ],
         )
@@ -1647,8 +1651,10 @@ class TestCpplint(CpplintTestBase):
           };""",
                 [
                     "Extra space before ( in function call  [whitespace/parens] [4]",
-                    "Single-parameter constructors should be marked explicit."
-                    "  [runtime/explicit] [4]",
+                    (
+                        "Single-parameter constructors should be marked explicit."
+                        "  [runtime/explicit] [4]"
+                    ),
                 ],
             )
             # missing explicit, with distracting comment, is still bad
@@ -3757,8 +3763,10 @@ class TestCpplint(CpplintTestBase):
             "nul_utf8.cc", "cc", ["// Copyright 2014 Your Company.", unidata, ""], error_collector
         )
         assert error_collector.Results() == [
-            "Line contains invalid UTF-8 (or Unicode replacement character).  "
-            "[readability/utf8] [5]",
+            (
+                "Line contains invalid UTF-8 (or Unicode replacement character).  "
+                "[readability/utf8] [5]"
+            ),
             "Line contains NUL byte.  [readability/nul] [5]",
         ]
 
@@ -3997,7 +4005,7 @@ class TestCpplint(CpplintTestBase):
                 "}",
                 "else if (piyo) {",  # Warning on this line
                 "}",
-                " else {"  # Warning on this line
+                " else {",  # Warning on this line
                 "",
                 "}",
             ],
@@ -4096,9 +4104,11 @@ class TestCpplint(CpplintTestBase):
             "foo.cc",
             "cc",
             [
-                "const auto result = std::any_of(vector.begin(), "
-                "vector.end(), "
-                "[](const int i) { return i > 0; });"
+                (
+                    "const auto result = std::any_of(vector.begin(), "
+                    "vector.end(), "
+                    "[](const int i) { return i > 0; });"
+                )
             ],
             error_collector,
         )
@@ -4117,9 +4127,11 @@ class TestCpplint(CpplintTestBase):
             "foo.cc",
             "cc",
             [
-                "return mutex::Lock<void>([this]() { "
-                "this->ReadLock(); }, [this]() { "
-                "this->ReadUnlock(); });"
+                (
+                    "return mutex::Lock<void>([this]() { "
+                    "this->ReadLock(); }, [this]() { "
+                    "this->ReadUnlock(); });"
+                )
             ],
             error_collector,
         )
@@ -4138,9 +4150,11 @@ class TestCpplint(CpplintTestBase):
             "foo.cc",
             "cc",
             [
-                "return mutex::Lock<void>([this]() { "
-                "this->ReadLock(); }, [this]() { "
-                "this->ReadUnlock(); }, object);"
+                (
+                    "return mutex::Lock<void>([this]() { "
+                    "this->ReadLock(); }, [this]() { "
+                    "this->ReadUnlock(); }, object);"
+                )
             ],
             error_collector,
         )
@@ -5166,10 +5180,14 @@ func2();""",
             self.TestMultiLineLint(
                 test_code,
                 [
-                    "Single-parameter constructors should be marked explicit."
-                    "  [runtime/explicit] [4]",
-                    "{ should almost always be at the end of the previous line"
-                    "  [whitespace/braces] [4]",
+                    (
+                        "Single-parameter constructors should be marked explicit."
+                        "  [runtime/explicit] [4]"
+                    ),
+                    (
+                        "{ should almost always be at the end of the previous line"
+                        "  [whitespace/braces] [4]"
+                    ),
                 ],
             )
 
@@ -5193,10 +5211,14 @@ func2();""",
             self.TestMultiLineLint(
                 test_code,
                 [
-                    "Single-parameter constructors should be marked explicit."
-                    "  [runtime/explicit] [4]",
-                    "{ should almost always be at the end of the previous line"
-                    "  [whitespace/braces] [4]",
+                    (
+                        "Single-parameter constructors should be marked explicit."
+                        "  [runtime/explicit] [4]"
+                    ),
+                    (
+                        "{ should almost always be at the end of the previous line"
+                        "  [whitespace/braces] [4]"
+                    ),
                 ],
             )
 
@@ -5695,31 +5717,39 @@ func2();""",
             if platform.system() == "Windows":
                 test_directory = test_directory.replace("\\", "/")
             fmt = "{dir}/{fn}.cc should include its header file {dir}/{fn}.h  [build/include] [5]"
-            expected = fmt.format(fn="foo", dir=test_directory)
-            assert error_collector.Results().count(expected) == 1
+            foo_header_error = fmt.format(fn="foo", dir=test_directory)
+            assert error_collector.Results().count(foo_header_error) == 1
 
             error_collector = ErrorCollector(self.assertTrue)
             cpplint.ProcessFileData(
                 "test/foo.cc", "cc", [r'#include "test/foo.h"', ""], error_collector
             )
-            assert error_collector.Results().count(expected) == 0
+            assert error_collector.Results().count(foo_header_error) == 0
 
-            # Unix directory aliases are not allowed, and should trigger the
-            # "include itse header file" error
+            # Unix directory aliases should be reported separately from a
+            # missing related-header error.
             error_collector = ErrorCollector(self.assertTrue)
             cpplint.ProcessFileData(
                 "test/foo.cc", "cc", [r'#include "./test/foo.h"', ""], error_collector
             )
-            fmt = "{dir}/{fn}.cc should include its header file {dir}/{fn}.h{unix_text}"
-            expected = (
-                fmt.format(
-                    fn="foo",
-                    dir=test_directory,
-                    unix_text=". Relative paths like . and .. are not allowed.",
-                )
-                + "  [build/include] [5]"
+            relative_path_error = (
+                "Relative paths like . and .. are not allowed.  [build/include] [4]"
             )
-            assert error_collector.Results().count(expected) == 1
+            assert error_collector.Results().count(relative_path_error) == 1
+            assert error_collector.Results().count(foo_header_error) == 1
+
+            # A directory name ending in dots is not a Unix directory alias.
+            error_collector = ErrorCollector(self.assertTrue)
+            cpplint.ProcessFileData(
+                "test/foo.cc",
+                "cc",
+                [r'#include "test/foo../bar.h"', ""],
+                error_collector,
+            )
+            assert not any(
+                "Relative paths like . and .. are not allowed." in error
+                for error in error_collector.Results()
+            )
 
             # This should continue to work
             error_collector = ErrorCollector(self.assertTrue)
@@ -5727,20 +5757,20 @@ func2();""",
                 "test/Bar.cc", "cc", [r'#include "test/Bar.h"', ""], error_collector
             )
             fmt = "{dir}/{fn}.cc should include its header file {dir}/{fn}.h  [build/include] [5]"
-            expected = fmt.format(fn="Bar", dir=test_directory)
-            assert error_collector.Results().count(expected) == 0
+            bar_header_error = fmt.format(fn="Bar", dir=test_directory)
+            assert error_collector.Results().count(bar_header_error) == 0
 
             # Since Bar.cc & Bar.h look 3rd party-ish, it should be ok without the include dir
             error_collector = ErrorCollector(self.assertTrue)
             cpplint.ProcessFileData("test/Bar.cc", "cc", [r'#include "Bar.h"', ""], error_collector)
-            assert error_collector.Results().count(expected) == 0
+            assert error_collector.Results().count(bar_header_error) == 0
 
             # Test edge case in which multiple files have the same base name
             open(os.path.join(test_directory, "foo.hpp"), "a").close()
             cpplint.ProcessFileData(
                 "test/foo.cc", "cc", [r'#include "foo.hpp"', ""], error_collector
             )
-            assert error_collector.Results().count(expected) == 0
+            assert error_collector.Results().count(bar_header_error) == 0
 
         finally:
             # Restore previous CWD.
@@ -5832,6 +5862,15 @@ func2();""",
         )
         self.TestLint('#include "baz.aa"', "")
         self.TestLint('#include "dir/foo.h"', "")
+        self.TestLint(
+            '#include "../foo/bar.h"',
+            "Relative paths like . and .. are not allowed.  [build/include] [4]",
+        )
+        self.TestLint(
+            '#include "private/./test.h"',
+            "Relative paths like . and .. are not allowed.  [build/include] [4]",
+        )
+        self.TestLint('#include "dir/foo..h"', "")
         self.TestLint('#include "Python.h"', "")
         self.TestLint('#include "lua.h"', "")
 
@@ -7373,6 +7412,79 @@ def run_around_tests(pytestconfig: pytest.Config):
         "::" in arg for arg in pytestconfig.args
     ):
         ErrorCollector(None).VerifyAllCategoriesAreSeen()
+
+
+def test_is_parent_or_same_uses_complete_path_components(tmp_path):
+    """Check component boundaries and cross-drive behavior."""
+    root = tmp_path / "repo"
+    assert cpplint._IsParentOrSame(str(root), str(root))
+    assert cpplint._IsParentOrSame(str(root), str(root / "sub" / "source.cc"))
+    assert cpplint._IsParentOrSame(str(root), str(root / "sub" / ".." / "README.md"))
+    assert not cpplint._IsParentOrSame(str(root), str(tmp_path / "repository" / "x.h"))
+    assert not cpplint._IsParentOrSame(str(root), str(root / ".." / "elsewhere" / "x.h"))
+    assert not cpplint._IsParentOrSame(str(root / "sub"), str(root))
+    if os.name == "nt":
+        assert not cpplint._IsParentOrSame(r"C:\repo", r"D:\repo\foo.cc")
+        assert cpplint._IsParentOrSame(r"C:\Repo", r"c:\repo\sub\foo.cc")
+
+
+@pytest.mark.parametrize(
+    ("metadata", "legacy_svn"),
+    [
+        (".git", False),
+        (".hg", False),
+        (".svn", False),
+        (".svn", True),
+    ],
+)
+def test_file_info_repository_name_without_commonprefix(
+    tmp_path, monkeypatch, metadata, legacy_svn
+):
+    """Verify Git, Hg, and SVN repository-relative file paths."""
+    monkeypatch.setattr(cpplint, "_repository", None)
+    root = tmp_path / "repo"
+    source_dir = root / "src"
+    source_dir.mkdir(parents=True)
+    (root / metadata).mkdir()
+    if legacy_svn:
+        (source_dir / ".svn").mkdir()
+    source = source_dir / "example.h"
+    source.write_text("", encoding="utf-8")
+    assert cpplint.FileInfo(str(source)).RepositoryName() == "src/example.h"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX double-slash paths")
+def test_is_parent_or_same_double_slash_root():
+    """Recognize descendants under a double-slash root but reject siblings."""
+    root = "//tmp/cpplint_repo"
+    assert cpplint._IsParentOrSame(root, "//tmp/cpplint_repo/src/a.h")
+    assert not cpplint._IsParentOrSame(root, "//tmp/cpplint_repository/src/a.h")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX double-slash paths")
+@pytest.mark.parametrize(
+    ("metadata", "legacy_svn"),
+    [
+        (".git", False),
+        (".hg", False),
+        (".svn", False),
+        (".svn", True),
+    ],
+)
+def test_double_slash_repository_name(tmp_path, monkeypatch, metadata, legacy_svn):
+    """Keep repo-relative names for POSIX double-slash paths with VCS metadata."""
+    monkeypatch.setattr(cpplint, "_repository", None)
+    root = tmp_path / "repo"
+    source_dir = root / "src"
+    source_dir.mkdir(parents=True)
+    (root / metadata).mkdir()
+    if legacy_svn:
+        (source_dir / ".svn").mkdir()
+    source_file = source_dir / "example.h"
+    source_file.write_text("", encoding="utf-8")
+    double_slash_name = "/" + str(source_file)
+    assert double_slash_name.startswith("//")
+    assert cpplint.FileInfo(double_slash_name).RepositoryName() == "src/example.h"
 
 
 if __name__ == "__main__":
